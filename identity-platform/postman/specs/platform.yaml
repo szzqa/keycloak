@@ -1,0 +1,390 @@
+openapi: 3.1.0
+info:
+  title: Identity platform and TapCanvas integration
+  version: 1.0.0
+  description: Single active EMPLOYEE or CONSUMER policy per platform account. Amounts are decimal strings. Legacy balances are not carried forward. Internal callers need an application service token; reserve and account resolution additionally require X-User-Token for that application's authenticated user.
+servers:
+  - url: http://127.0.0.1:8081
+security:
+  - bearer: []
+paths:
+  /internal/v1/admin/wallets/{user}/open:
+    parameters:
+      - {in: path, name: user, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: openReviewedCreditBatch
+      description: Requires platform.manage. Imports wait for this separate, idempotent credit-opening step. Preserves original product data and never transfers legacy balances.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestId, batchId, sourceDigest, reason]
+              properties:
+                requestId: {type: string, format: uuid}
+                batchId: {type: string, minLength: 1, maxLength: 191}
+                sourceDigest: {type: string, pattern: '^[a-f0-9]{64}$'}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200': {description: Opened exactly once or exact replay}
+        '409': {description: Conflicting batch or credits already opened}
+  /internal/v1/admin/wallets/{user}/rule-schedules:
+    parameters:
+      - {in: path, name: user, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: scheduleEmployeeRules
+      description: Requires platform.manage. Applies reviewed membership expiry rules without refilling the current period. Cannot change policy or reset time. Explicit administrator reconfiguration cancels previous schedules.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestId, effectiveAt, wallet, reason]
+              properties:
+                requestId: {type: string, format: uuid}
+                effectiveAt: {type: string, format: date-time}
+                wallet: {$ref: '#/components/schemas/WalletRules'}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200': {description: Schedule saved or exact replay}
+        '409': {description: Conflicting schedule}
+  /v1/me:
+    get:
+      operationId: platformMe
+      responses:
+        '200': {description: Stable id, displayName, policy and employeeEligible, independent of login method, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformUser'}}}}
+        '401': {description: Invalid or revoked authentication}
+  /v1/me/applications:
+    get:
+      operationId: applications
+      responses:
+        '200': {description: Authorized application entries}
+  /v1/me/wallet:
+    get:
+      operationId: wallet
+      responses:
+        '200': {description: Central wallet with decimal string amounts, content: {application/json: {schema: {$ref: '#/components/schemas/Wallet'}}}}
+        '403': {description: Employee eligibility revoked}
+  /v1/me/wallet/ledger:
+    get:
+      operationId: ledger
+      parameters:
+        - {in: query, name: before, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: At most 50 immutable entries ordered by descending sequence and next cursor}
+  /v1/me/credit-requests:
+    get:
+      operationId: creditRequests
+      responses:
+        '200': {description: User-visible request history; internal review notes omitted}
+    post:
+      operationId: requestCredits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestId, amount, reason]
+              properties:
+                requestId: {type: string, format: uuid}
+                amount: {$ref: '#/components/schemas/PositiveAmount'}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200': {description: Idempotent request with approved or processing status}
+        '403': {description: Consumer accounts cannot request credits}
+        '409': {description: Request identifier reused with different facts}
+  /internal/v1/app-accounts/resolve:
+    post:
+      operationId: resolveAppAccount
+      parameters:
+        - {$ref: '#/components/parameters/UserToken'}
+      responses:
+        '200': {description: platformUserId, localUserId and policy; never matches by email}
+        '409': {description: Missing migration mapping or identity conflict}
+  /internal/v1/wallet/reservations:
+    post:
+      operationId: reserve
+      parameters:
+        - {$ref: '#/components/parameters/UserToken'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operationId, requestDigest, localUserId, mode, amount, context]
+              properties:
+                operationId: {type: string, minLength: 1, maxLength: 191}
+                requestDigest: {type: string, pattern: '^[a-f0-9]{64}$'}
+                localUserId: {type: string, minLength: 1}
+                mode: {type: string, enum: [FIXED, TOKEN]}
+                amount: {$ref: '#/components/schemas/Amount'}
+                context: {type: string, minLength: 1, maxLength: 4000}
+      responses:
+        '200': {description: Stable operation state; TOKEN requires zero reservation and positive available balance}
+        '403': {description: Application, user or employee access denied}
+        '409': {description: Insufficient credits or immutable operation facts conflict}
+  /internal/v1/wallet/operations/{operationId}:
+    parameters:
+      - {$ref: '#/components/parameters/OperationId'}
+    get:
+      operationId: queryOperation
+      responses:
+        '200': {description: State, reserved, charged, due and uncollected for calling application}
+        '404': {description: Operation not found for this application}
+  /internal/v1/wallet/operations/{operationId}/settle:
+    parameters:
+      - {$ref: '#/components/parameters/OperationId'}
+    post:
+      operationId: settle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, evidence]
+              properties:
+                amount: {$ref: '#/components/schemas/Amount'}
+                evidence: {type: string, minLength: 1, maxLength: 4000}
+      responses:
+        '200': {description: Idempotent settlement against original period; TOKEN may record uncollected credits}
+        '409': {description: Conflicting terminal facts or fixed amount exceeds reservation}
+  /internal/v1/wallet/operations/{operationId}/release:
+    parameters:
+      - {$ref: '#/components/parameters/OperationId'}
+    post:
+      operationId: release
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [evidence]
+              properties:
+                evidence: {type: string, minLength: 1, maxLength: 4000}
+      responses:
+        '200': {description: Released after authoritative failure or proven non-submission; timeouts are not evidence}
+        '409': {description: Already settled or terminal facts conflict}
+  /internal/v1/me/wallet:
+    get:
+      operationId: appUserWallet
+      parameters: [{$ref: '#/components/parameters/UserToken'}]
+      responses:
+        '200': {description: Authenticated product user's shared wallet, content: {application/json: {schema: {$ref: '#/components/schemas/Wallet'}}}}
+  /internal/v1/me/wallet/ledger:
+    get:
+      operationId: appUserLedger
+      parameters: [{$ref: '#/components/parameters/UserToken'}, {in: query, name: before, schema: {type: integer, minimum: 1}}]
+      responses: {'200': {description: Paginated shared ledger}}
+  /internal/v1/me/credit-requests:
+    get:
+      operationId: appUserRequests
+      parameters: [{$ref: '#/components/parameters/UserToken'}]
+      responses: {'200': {description: Employee application history}}
+    post:
+      operationId: appUserRequestCredits
+      parameters: [{$ref: '#/components/parameters/UserToken'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreditRequest'}}}}
+      responses: {'200': {description: Idempotent application}, '403': {description: Consumer or inactive employee}, '409': {description: Conflicting facts}}
+  /internal/v1/wallet/delegated-reservations:
+    post:
+      operationId: delegatedReserve
+      description: Requires platform.integrate and platform.delegate and application delegatedBilling=true. Caller authenticates and authorizes its API-key actor; platform resolves only that application's existing local mapping and checks live upstream eligibility. No user-supplied platform ID.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Reservation'}}}}
+      responses: {'200': {description: App-scoped operation, content: {application/json: {schema: {$ref: '#/components/schemas/Operation'}}}}, '403': {description: Delegation or eligibility denied}, '409': {description: Mapping, balance or facts conflict}}
+  /internal/v1/wallet/reservations/cancel:
+    post:
+      operationId: cancelUnsubmittedIntent
+      description: Service-only fencing for a durable product intent that never reached dispatch authorization. Creates an idempotent tombstone even if reserve has not arrived; an existing matching reservation is released. Never use for unknown supplier outcomes or dispatched work. Allowed for disabled product/user to close existing work.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [reservation, evidence], properties: {reservation: {$ref: '#/components/schemas/Reservation'}, evidence: {type: string, minLength: 1, maxLength: 1000}}}}}}
+      responses: {'200': {description: CANCELLED fencing acknowledged}, '409': {description: Already settled or conflicting immutable facts}}
+  /internal/v1/admin/applications/{id}:
+    parameters: [{in: path, name: id, required: true, schema: {type: string}}]
+    get:
+      operationId: getApplicationConfiguration
+      description: Requires platform.manage. Provisioning reads this before initial registration so a restart never resets cutover or access settings.
+      responses:
+        '200': {description: Current application configuration, content: {application/json: {schema: {$ref: '#/components/schemas/Application'}}}}
+        '404': {description: Application has not been registered}
+  /internal/v1/admin/applications:
+    post:
+      operationId: configureApplication
+      description: Requires platform.manage. migrationReady remains false until the reviewed legacy migration is complete.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Application'}}}}
+      responses: {'200': {description: Audited application configuration}}
+  /internal/v1/admin/imports/accounts:
+    post:
+      operationId: importLegacyMapping
+      description: Requires platform.manage. Idempotency is batchId/appId/localUserId plus immutable facts; old balances are not imported. Existing wallets with history require explicit review.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AccountImport'}}}}
+      responses: {'200': {description: userId and COMPLETE status}, '409': {description: Identity, wallet or batch conflict}}
+  /internal/v1/admin/wallets/{user}/adjust:
+    parameters: [{$ref: '#/components/parameters/UserId'}]
+    post:
+      operationId: adjustCredits
+      description: Requires platform.manage; immutable requestId, signed decimal amount and reason.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [requestId, amount, reason], properties: {requestId: {type: string, format: uuid}, amount: {type: string, pattern: '^-?(0|[1-9][0-9]{0,17})$'}, reason: {type: string, minLength: 1, maxLength: 1000}}}}}}
+      responses: {'200': {description: Audited adjustment}, '409': {description: Insufficient unfrozen funds or conflicting request}}
+  /internal/v1/admin/wallets/{user}/policy:
+    parameters: [{$ref: '#/components/parameters/UserId'}]
+    post:
+      operationId: configurePolicy
+      description: Requires platform.manage. Pending operations/applications block changes. A policy change archives the old epoch, then opens the new strategy; no balance merging.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [requestId, wallet, reason], properties: {requestId: {type: string, format: uuid}, wallet: {$ref: '#/components/schemas/WalletRules'}, reason: {type: string, minLength: 1, maxLength: 1000}}}}}}
+      responses: {'200': {description: Audited policy change}, '409': {description: Pending reconciliation or membership missing}}
+  /internal/v1/admin/users/{user}/membership:
+    parameters: [{$ref: '#/components/parameters/UserId'}]
+    post:
+      operationId: configureMembership
+      description: Requires platform.manage. Stores local approval independently from upstream status. Refresh eligibility before activating an employee policy.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [requestId, membership, reason], properties: {requestId: {type: string, format: uuid}, membership: {$ref: '#/components/schemas/Membership'}, reason: {type: string}}}}}}
+      responses: {'200': {description: Audited membership configuration}}
+  /internal/v1/admin/users/{user}/state:
+    parameters: [{$ref: '#/components/parameters/UserId'}]
+    post:
+      operationId: configureUserState
+      description: Requires platform.manage. Disabling prevents new access/consumption; previously authorized tasks may still settle.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [requestId, enabled, reason], properties: {requestId: {type: string, format: uuid}, enabled: {type: boolean}, reason: {type: string}}}}}}
+      responses: {'200': {description: Audited account state}}
+  /internal/v1/admin/users/{user}/eligibility/refresh:
+    parameters: [{$ref: '#/components/parameters/UserId'}]
+    post:
+      operationId: refreshEligibility
+      description: Requires platform.manage. Fails closed when the upstream cannot be checked.
+      responses: {'200': {description: Current eligibility}, '403': {description: Inactive}, '503': {description: Upstream unavailable}}
+  /internal/v1/admin/credit-requests/{request}/decision:
+    parameters: [{in: path, name: request, required: true, schema: {type: string, format: uuid}}]
+    post:
+      operationId: decideCreditRequest
+      description: Requires platform.manage. Approval checks live eligibility and cannot issue the same grant twice.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [approve, reason], properties: {approve: {type: boolean}, reason: {type: string, minLength: 1, maxLength: 1000}}}}}}
+      responses: {'200': {description: Decision persisted}, '409': {description: Changed decision or stale policy}}
+  /internal/v1/admin/applications/{app}/operations/{operation}/refund:
+    parameters: [{in: path, name: app, required: true, schema: {type: string}}, {in: path, name: operation, required: true, schema: {type: string}}]
+    post:
+      operationId: refundCredits
+      description: Requires platform.manage. Total refunds cannot exceed the original actual charge. Credits return to the original bucket; expired or archived credits do not become new available funds.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreditRequest'}}}}
+      responses: {'200': {description: Idempotent audited refund}, '409': {description: Refund conflicts or exceeds actual charge}}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    UserToken: {in: header, name: X-User-Token, required: true, schema: {type: string}}
+    OperationId: {in: path, name: operationId, required: true, schema: {type: string, minLength: 1, maxLength: 191}}
+    UserId: {in: path, name: user, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    Amount: {type: string, pattern: '^(0|[1-9][0-9]{0,17})$'}
+    AggregateAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+    PositiveAmount: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+    PlatformUser:
+      type: object
+      required: [id, displayName, policy, employeeEligible]
+      properties:
+        id: {type: string, format: uuid}
+        displayName: {type: string}
+        policy: {type: string, enum: [EMPLOYEE, CONSUMER]}
+        employeeEligible: {type: boolean}
+    Wallet:
+      type: object
+      required: [active, policy, balance, available, reserved, resetAt, canApply, totalEarned, totalSpent, updatedAt]
+      properties:
+        active: {type: boolean, description: False until a migrated account has an approved credit-opening batch}
+        policy: {type: string, enum: [EMPLOYEE, CONSUMER]}
+        balance: {$ref: '#/components/schemas/AggregateAmount'}
+        available: {$ref: '#/components/schemas/AggregateAmount'}
+        reserved: {$ref: '#/components/schemas/AggregateAmount'}
+        resetAt: {type: [string, 'null'], format: date-time}
+        canApply: {type: boolean}
+        totalEarned: {$ref: '#/components/schemas/AggregateAmount'}
+        totalSpent: {$ref: '#/components/schemas/AggregateAmount'}
+        updatedAt: {type: string, format: date-time}
+    CreditRequest:
+      type: object
+      required: [requestId, amount, reason]
+      properties:
+        requestId: {type: string, format: uuid}
+        amount: {$ref: '#/components/schemas/PositiveAmount'}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    Reservation:
+      type: object
+      required: [operationId, requestDigest, localUserId, mode, amount, context]
+      properties:
+        operationId: {type: string, minLength: 1, maxLength: 191}
+        requestDigest: {type: string, pattern: '^[a-f0-9]{64}$'}
+        localUserId: {type: string, minLength: 1, maxLength: 191}
+        mode: {type: string, enum: [FIXED, TOKEN]}
+        amount: {$ref: '#/components/schemas/Amount'}
+        context: {type: string, minLength: 1, maxLength: 4000}
+    Operation:
+      allOf:
+        - type: object
+          required: [operationId, mode, amount, requestDigest, context, status, userId, bucketId, due, charged, uncollected, evidence]
+          properties:
+            operationId: {type: string}
+            mode: {type: string, enum: [FIXED, TOKEN]}
+            amount: {$ref: '#/components/schemas/Amount'}
+            requestDigest: {type: string}
+            context: {type: string}
+        - type: object
+          properties:
+            userId: {type: string, format: uuid}
+            bucketId: {type: string, format: uuid}
+            status: {type: string, enum: [RESERVED, SETTLED, RELEASED]}
+            due: {$ref: '#/components/schemas/Amount'}
+            charged: {$ref: '#/components/schemas/Amount'}
+            uncollected: {$ref: '#/components/schemas/Amount'}
+            evidence: {type: [string, 'null']}
+    WalletRules:
+      type: object
+      required: [policy, dailyCredits, initialCredits, resetTime, requestEnabled, maxRequest, maxDailyRequest, immediateCount, delayedCount, delayMinutes]
+      properties:
+        policy: {type: string, enum: [EMPLOYEE, CONSUMER]}
+        dailyCredits: {$ref: '#/components/schemas/Amount'}
+        initialCredits: {$ref: '#/components/schemas/Amount'}
+        resetTime: {type: string, description: Local time in Asia/Shanghai, example: '00:00:00'}
+        requestEnabled: {type: boolean}
+        maxRequest: {$ref: '#/components/schemas/Amount'}
+        maxDailyRequest: {$ref: '#/components/schemas/Amount'}
+        immediateCount: {type: integer, minimum: 0}
+        delayedCount: {type: integer, minimum: 0}
+        delayMinutes: {type: integer, minimum: 0, maximum: 10080}
+    Membership:
+      type: object
+      required: [orgId, provider, subject, enabled]
+      properties:
+        orgId: {type: string}
+        provider: {type: string}
+        subject: {type: string}
+        enabled: {type: boolean}
+    Application:
+      type: object
+      required: [id, name, launchUrl, clientId, serviceClientId, audience, enabled, consumerAllowed, migrationReady, delegatedBilling]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        launchUrl: {type: string, format: uri}
+        clientId: {type: string}
+        serviceClientId: {type: string}
+        audience: {type: string}
+        enabled: {type: boolean}
+        consumerAllowed: {type: boolean}
+        migrationReady: {type: boolean}
+        delegatedBilling: {type: boolean}
+    AccountImport:
+      type: object
+      required: [batchId, appId, localUserId, subject, displayName, enabled, wallet]
+      properties:
+        batchId: {type: string}
+        appId: {type: string}
+        localUserId: {type: string}
+        subject: {type: string}
+        displayName: {type: string, minLength: 1, maxLength: 80}
+        enabled: {type: boolean}
+        wallet: {$ref: '#/components/schemas/WalletRules'}
+        membership: {oneOf: [{$ref: '#/components/schemas/Membership'}, {type: 'null'}]}
