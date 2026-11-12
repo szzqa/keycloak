@@ -1,0 +1,20 @@
+{
+  "accessTokenLifespan": 300,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["zh-CN", "en"],
+  "defaultLocale": "zh-CN",
+  "loginTheme": "identity",
+  "emailTheme": "identity",
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "permanentLockout": false,
+  "passwordPolicy": "length(12) and notUsername(undefined)",
+  "eventsEnabled": true,
+  "eventsExpiration": 604800,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": false,
+  "sslRequired": "external"
+}

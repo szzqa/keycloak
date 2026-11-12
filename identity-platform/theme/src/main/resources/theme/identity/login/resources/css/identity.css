@@ -1,0 +1,4 @@
+:root { --pf-v5-global--primary-color--100: #2454d6; }
+body { background: #f3f6fb; }
+.pf-v5-c-login__main { border-radius: 14px; box-shadow: 0 16px 48px #14274a12; }
+#kc-header-wrapper { color: #15335b; font-weight: 700; }

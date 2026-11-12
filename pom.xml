@@ -335,6 +335,7 @@
         <module>scim</module>
         <module>ssf</module>
         <module>authzen</module>
+        <module>identity-platform</module>
     </modules>
 
     <dependencyManagement>

@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: WeCom employee authentication subset
+  version: 1.0.0
+  description: Contract subset from developer.work.weixin.qq.com paths 98152, 98176, 91022 and 91039. Corporate self-built applications only.
+servers:
+  - url: https://qyapi.weixin.qq.com
+paths:
+  /cgi-bin/gettoken:
+    get:
+      parameters:
+        - {name: corpid, in: query, required: true, schema: {type: string}}
+        - {name: corpsecret, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Application token or API error (inspect errcode).
+          content:
+            application/json:
+              example: {errcode: 0, errmsg: ok, access_token: mock-application-token, expires_in: 7200}
+  /cgi-bin/auth/getuserinfo:
+    get:
+      parameters:
+        - {name: access_token, in: query, required: true, schema: {type: string}}
+        - {name: code, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Member userid or nonmember openid; code is single-use and expires after five minutes.
+          content:
+            application/json:
+              examples:
+                member: {value: {errcode: 0, errmsg: ok, userid: alice}}
+                nonmember: {value: {errcode: 0, errmsg: ok, openid: external-person}}
+                invalid: {value: {errcode: 40029, errmsg: invalid code}}

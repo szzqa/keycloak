@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info: {title: Keycloak platform session extension, version: 1.0.0}
+servers:
+  - url: http://127.0.0.1:8180/realms/consumer/identity-platform
+paths:
+  /account:
+    get:
+      summary: Read the caller's verified identity binding and current employee admission
+      description: Requires a valid active platform session, enabled user, verified email and an access token issued to consumer-web or product-b-web. The employee flag requires a matching company binding and verified upstream subject/session notes plus a currently active eligible workforce user and session. The two realms must run in the same Keycloak deployment. No arbitrary user ID is accepted.
+      security: [{bearer: []}]
+      responses:
+        '200':
+          description: Current binding and admission; response is never cached
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [companyLinked, employee]
+                additionalProperties: false
+                properties:
+                  companyLinked: {type: boolean}
+                  employee: {type: boolean}
+        '401': {description: "Invalid token or session, unverified or disabled user, or unapproved client"}
+        '404': {description: Extension is unavailable outside the consumer realm}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer, bearerFormat: JWT}

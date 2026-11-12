@@ -1,0 +1,10 @@
+**/target/
+.local/
+.postman/
+postman/.dependencies/
+node_modules/
+test-results/
+playwright-report/
+*.log
+postman/skills/
+**/__pycache__/
