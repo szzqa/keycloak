@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info: {title: Platform user center and product BFF, version: 3.0.0}
+servers:
+  - url: http://127.0.0.1:8081
+  - url: http://127.0.0.1:8082
+paths:
+  /auth/login:
+    get:
+      summary: Start email login for this product
+      responses:
+        '302': {description: Redirect to the consumer OIDC registration}
+  /auth/login/wecom:
+    get:
+      summary: Start corporate WeCom login for the same product
+      responses:
+        '302': {description: Redirect to the platform registration with the company identity provider hint}
+  /bff/me:
+    get:
+      summary: Current user through the server-side session
+      description: All login methods resolve to one platform issuer and subject. A shared database maps that identity to a stable business userId. Tokens stay on the BFF. Each request checks the platform session; employee access also checks the linked workforce user and verified upstream session. Email never automatically merges accounts.
+      responses:
+        '200':
+          description: Verified user profile with issuer and subject
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '401': {description: Missing or expired business session}
+        '502': {description: Business API unavailable}
+        '503': {description: Employee identity service unavailable; access is denied}
+  /api/me:
+    get:
+      summary: Current user from an access token
+      security: [{bearer: []}]
+      responses:
+        '200':
+          description: 'Valid platform issuer, subject, product API audience, verified email and active platform session'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '401': {description: 'Missing, invalid or inactive token; failed email verification'}
+        '503': {description: Platform session service unavailable}
+  /api/employee/me:
+    get:
+      summary: Employee-only resource in the same product
+      security: [{bearer: []}]
+      responses:
+        '200':
+          description: Platform user with active verified company session
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '401': {description: Invalid or inactive token}
+        '403': {description: "No current company proof, missing link, disabled employee or expired upstream session"}
+        '503': {description: Platform session service unavailable}
+  /bff/employee/me:
+    get:
+      summary: Employee-only resource through the product session
+      responses:
+        '200':
+          description: Platform user with active verified company session
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '401': {description: Missing or inactive session}
+        '403': {description: Current company session or employee admission missing}
+        '502': {description: Business API unavailable}
+        '503': {description: Employee identity service unavailable}
+  /account/link/company:
+    post:
+      summary: Bind company identity to the signed-in platform user
+      description: Requires session and CSRF. Uses native Keycloak AIA to verify both identities. Unlinked company users must register and verify a platform email first. An identity already bound elsewhere is rejected.
+      responses:
+        '302': {description: Redirect to the native account linking flow}
+        '403': {description: Missing or invalid CSRF token}
+  /bff/profile:
+    post:
+      summary: Change the current platform user display name
+      description: Requires a product session and CSRF. Does not accept another user's identifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdate'}
+      responses:
+        '200':
+          description: Updated shared profile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '400': {description: Empty or invalid display name}
+        '401': {description: Missing or expired session}
+        '403': {description: Missing or invalid CSRF token}
+        '502': {description: Business API unavailable}
+        '503': {description: Identity service unavailable}
+  /api/profile:
+    post:
+      summary: Update own shared profile with a product-specific access token
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdate'}
+      responses:
+        '200':
+          description: Updated shared profile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '400': {description: Empty or invalid display name}
+        '401': {description: Invalid token or session}
+        '503': {description: Identity service unavailable}
+  /logout:
+    post:
+      summary: CSRF-protected application and OIDC logout
+      responses:
+        '302': {description: Redirect to Keycloak logout}
+        '403': {description: Missing or invalid CSRF token}
+components:
+  schemas:
+    ProfileUpdate:
+      type: object
+      required: [displayName]
+      properties:
+        displayName: {type: string, minLength: 1, maxLength: 80}
+    Profile:
+      type: object
+      required: [userId, displayName, subject, issuer, realm, name, email, product, companyLinked, employee]
+      additionalProperties: false
+      properties:
+        userId: {type: string, format: uuid, description: Shared business user ID across products and linked login methods}
+        displayName: {type: string, maxLength: 80}
+        product: {type: string}
+        companyLinked: {type: boolean}
+        employee: {type: boolean, description: Requires a current verified company session and active employee}
+        subject: {type: string, description: Stable Keycloak user ID}
+        issuer: {type: string, format: uri}
+        realm: {type: string, enum: [consumer]}
+        name: {type: string}
+        email: {type: string, description: Verified platform account email}
+  securitySchemes:
+    bearer: {type: http, scheme: bearer, bearerFormat: JWT}

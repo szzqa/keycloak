@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title th:text="${productName}">我的工作台</title><link rel="stylesheet" href="/style.css"><meta name="csrf" th:content="${_csrf.token}"><meta name="csrf-header" th:content="${_csrf.headerName}"></head>
+<body>
+<header><a class="brand" href="/"><span class="brand-icon">i</span><span th:text="${productName}"></span></a><nav><a th:href="${otherProduct}">探索另一个产品 ↗</a><button id="open-login" th:if="${!signedIn}">登录 / 注册</button><a th:if="${signedIn}" href="#account">我的账号</a></nav></header>
+<main>
+  <section class="platform-portal" th:if="${signedIn}" aria-label="应用门户">
+    <div class="eyebrow" id="portal-policy">我的空间</div><h1>一个账号，继续你的创作。</h1>
+    <p id="portal-status" role="status">正在读取应用和积分…</p>
+    <div id="portal-applications" class="portal-applications"></div>
+    <section class="portal-wallet" aria-label="积分账户"><div><h2 id="wallet-title">我的积分</h2><strong id="wallet-available">—</strong><p id="wallet-detail"></p></div>
+      <form id="credit-request-form" hidden><label for="credit-amount">申请积分</label><input id="credit-amount" name="amount" type="text" inputmode="numeric" pattern="[1-9][0-9]*" required maxlength="18">
+        <label for="credit-reason">申请理由</label><input id="credit-reason" name="reason" required maxlength="1000"><button type="submit">提交申请</button><p id="credit-request-status" role="status"></p>
+      </form>
+    </section>
+    <h2>积分记录</h2><div class="portal-ledger-wrap"><table class="portal-ledger"><thead><tr><th>时间</th><th>类型</th><th>产品</th><th>积分变化</th><th>冻结变化</th></tr></thead><tbody id="portal-ledger"></tbody></table></div>
+    <button id="portal-ledger-more" class="secondary" hidden>查看更多</button><h2 id="portal-requests-title" hidden>申请记录</h2><ul id="portal-requests"></ul>
+  </section>
+  <section class="hero"><div class="eyebrow">YOUR IDEAS, CONNECTED</div><h1>从一个账号，<br>开始更多可能。</h1><p>让灵感自由流动。你的资料与身份，在每个产品中相伴。</p><button class="hero-action" th:if="${!signedIn}" data-login>开始使用 <span>↗</span></button><a class="button" th:if="${signedIn}" href="#account">进入我的空间 ↘</a><div class="orb" aria-hidden="true"><span></span></div></section>
+  <section class="features"><article><span class="number">01 / CREATE</span><h2>专注你的创作</h2><p>把想法变成作品，让每一次探索都有迹可循。</p></article><article><span class="number">02 / CONNECT</span><h2>一个账号，多个空间</h2><p>在另一个产品点击登录，即可延续已有的登录状态。</p></article><article><span class="number">03 / TOGETHER</span><h2>与团队同行</h2><p>绑定公司身份，安全访问属于你的员工功能。</p></article></section>
+  <section class="account" id="account" th:if="${signedIn}">
+    <div><div class="eyebrow">YOUR ACCOUNT</div><h2>我的账号</h2><p>资料跟随账号，登录方式由你选择。</p></div>
+    <div class="account-content"><p id="account-status" role="status">正在读取账号…</p><dl id="profile-data" hidden><dt>平台用户 ID</dt><dd id="user-id"></dd><dt>验证邮箱</dt><dd id="email"></dd><dt>公司身份</dt><dd id="company-status"></dd></dl>
+    <form id="profile-form"><label for="display-name">昵称</label><div class="input-row"><input id="display-name" name="displayName" maxlength="80" required autocomplete="nickname"><button type="submit">保存</button></div></form>
+    <div class="account-actions"><form id="link-form" th:action="@{/account/link/company}" method="post"><button class="secondary" type="submit">绑定企业微信</button></form><a class="button secondary" href="/auth/login/wecom">验证公司身份</a><a class="text-link" th:href="${accountUrl}">密码、邮箱与绑定管理 ↗</a></div>
+    <button id="employee-check" class="secondary">进入员工功能</button><p id="employee-result" role="status"></p>
+    <div class="account-bottom"><button id="check" class="text-button">刷新登录状态</button><form th:action="@{/logout}" method="post"><button type="submit" class="text-button">退出所有产品</button></form></div></div>
+  </section>
+</main>
+<dialog id="login-dialog" aria-labelledby="login-title"><div class="login-layout"><aside><div class="brand"><span class="brand-icon">i</span>一个账号 · 更多可能</div><h2>你的灵感，<br>值得一个<br><em>更大的世界。</em></h2><p>邮箱与公司身份，连接同一个你。</p><div class="login-art" aria-hidden="true"></div><small>CREATE · CONNECT · BELONG</small></aside><section class="login-panel"><button class="close" id="close-login" aria-label="关闭登录弹窗">×</button><div class="eyebrow">WELCOME BACK</div><h2 id="login-title">欢迎回来</h2><p>选择一种方式，登录你的平台账号。</p><a class="login-option" href="/auth/login"><span class="method-icon">✉</span><span><strong>邮箱登录 / 注册</strong><small>邮箱验证 · 找回密码</small></span><span>↗</span></a><a class="login-option" href="/auth/login/wecom"><span class="method-icon company">企</span><span><strong>企业微信登录</strong><small>本公司员工</small></span><span>↗</span></a><div class="login-note">已有产品账号的员工可使用已接入的企业微信身份登录。其他账号可在个人中心绑定公司身份。</div><p class="login-footnote">将前往账号中心完成安全验证，随后自动返回。</p></section></div></dialog>
+<footer><span>IDENTITY / 一个账号，连接每个产品。</span><a href="http://127.0.0.1:8025">开发环境 · 本地收件箱 ↗</a></footer><script src="/app.js"></script>
+<script src="/portal.js"></script></body></html>

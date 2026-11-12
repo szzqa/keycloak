@@ -1,0 +1,16 @@
+version: 1
+id: 4a2c5216-7692-405d-94f0-aef8129c2bfa
+name: wecom
+slug: wecom
+protocol: http
+interceptRequests: true
+origin: [qyapi.weixin.qq.com, login.work.weixin.qq.com, open.weixin.qq.com]
+port: 9099
+scenarios:
+  - name: default
+    path: ./handler.js
+    default: true
+generatedFrom:
+  type: spec
+  mode: static
+  path: ../../specs/wecom.yaml

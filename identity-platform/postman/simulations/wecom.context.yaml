@@ -1,0 +1,43 @@
+purpose:
+  stands_in_for: WeCom corporate self-built application authorization and identity APIs.
+  unblocks: Local execution of the real Keycloak provider without corporate credentials.
+assumptions:
+  - id: member-identification
+    status: supported
+    claim: The documented member response contains userid; openid alone is not an employee admission proof.
+    reason: Based on official documentation; the mock separately models members and nonmembers.
+    verification: Official paths 98176 and 91023 were reviewed. Real corporate application remains untested.
+    source: https://developer.work.weixin.qq.com/document/path/98176
+    updated_at: '2026-11-09'
+  - id: local-provider-execution
+    status: supported
+    claim: The real provider rejects unapproved, disabled, replayed and failed authentication attempts against this simulation.
+    reason: The real SPI is loaded in the local Keycloak process; the simulation replaces only corporate upstream HTTP.
+    verification: Browser tests passed for approved member plus TOTP, outsider, external contact, disabled member, forged/replayed state, timeout, HTTP failure, malformed JSON and in-app routing. This is not live corporate verification.
+    source: integration-tests/
+    updated_at: '2026-11-09'
+  - id: single-product-routing
+    status: supported
+    claim: Historical interim implementation accepted two direct issuers; it has been superseded by the unified-platform-account implementation below.
+    reason: This records the previous phase only; current products use a single platform issuer and the company broker.
+    verification: All 15 browser tests passed together on port 8081, including both login links, same-browser identity switching without employee role retention, cross-Realm logout isolation and employee RP logout. The simulation log recorded calls to gettoken and auth/getuserinfo.
+    source: integration-tests/login.spec.cjs
+    updated_at: '2026-11-09'
+  - id: unified-platform-account
+    status: supported
+    claim: Email and linked company login resolve to the same platform subject and business userId; two products share SSO and profile while retaining distinct API audiences and cookies.
+    reason: Real Keycloak company OIDC broker, native account linking, session proof SPI, Spring BFFs and PostgreSQL user center ran locally. Only corporate upstream is simulated.
+    verification: Full 17-test browser suite passed, including binding conflicts, denial of unlinked corporate auto-provisioning, employee disable/session revocation, email login without employee privileges, cross-product SSO/profile/logout, original email and token security cases. Postman ran 11 real BFF/API/Keycloak requests with 14 passing assertions. Explicit corporate reauthentication after personal SSO, cross-product employee SSO and invalid profile inputs also passed in the final full run.
+    source: integration-tests/login.spec.cjs
+    updated_at: '2026-11-09'
+fingerprints:
+  - id: unified-platform-tapcanvas-rehearsal
+    date: '2026-11-12'
+    commit: null
+    cli: Local Postman simulation only; no cloud publication.
+    verification: Real SPI on isolated Keycloak 8280, portal 8281 and TapCanvas API 8877. Verified prelinked employee without email, TOTP, original product user ID, subsequent verified email login using the same policy and balance, and employee disablement. No real corporate endpoint was called.
+    limits: Callback allowlist includes only exact local Keycloak broker endpoints on 8180 and 8280; codes bind to the requested callback and are single use. Actual corporate namespaces and production callbacks still require target-environment verification.
+  - id: local-development
+    date: '2026-11-09'
+    commit: null
+    cli: Postman 1.82.0; signed out, owner mock search skipped; no cloud publication.

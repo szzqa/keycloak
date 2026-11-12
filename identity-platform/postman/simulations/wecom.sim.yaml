@@ -1,0 +1,7 @@
+simulation: wecom-local
+routing: path
+mocks:
+  - name: wecom
+    routeKey: wecom
+    origin: [qyapi.weixin.qq.com, login.work.weixin.qq.com, open.weixin.qq.com]
+    path: postman/mocks/wecom
