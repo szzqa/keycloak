@@ -1,0 +1,10 @@
+$kind: http-request
+url: '{{baseUrl}}/api/employee/me'
+method: GET
+auth:
+  type: noauth
+order: 6000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Employee API rejects a missing token', () => pm.response.to.have.status(401));

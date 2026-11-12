@@ -1,0 +1,8 @@
+$kind: http-request
+url: '{{baseUrl}}/account/link/company'
+method: POST
+order: 9000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Company linking requires CSRF', () => pm.response.to.have.status(403));

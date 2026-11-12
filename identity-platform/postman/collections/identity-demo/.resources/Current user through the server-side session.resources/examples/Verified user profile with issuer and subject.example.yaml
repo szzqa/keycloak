@@ -1,0 +1,17 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/bff/me"
+  method: GET
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: '{"subject":"example-user-id","issuer":"http://127.0.0.1:8180/realms/consumer","realm":"consumer","name":"example@identity.test","email":"example@identity.test"}'
+order: 1000

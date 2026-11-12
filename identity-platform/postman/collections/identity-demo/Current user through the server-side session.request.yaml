@@ -1,0 +1,11 @@
+$kind: http-request
+description: One product session uses the active consumer or workforce identity. Tokens stay on the BFF; workforce access requires introspection.
+url: "{{baseUrl}}/bff/me"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('BFF rejects a missing session', () => pm.response.to.have.status(401));
+settings: {}
+examples: ./.resources/Current user through the server-side session.resources/examples
+order: 1000

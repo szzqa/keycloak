@@ -1,0 +1,11 @@
+$kind: http-request
+url: '{{baseUrl}}/auth/login/wecom'
+method: GET
+settings:
+  followRedirects: false
+order: 5000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('WeCom entry redirects', () => pm.response.to.have.status(302));
+      pm.test('WeCom entry selects company broker in platform realm', () => pm.expect(pm.response.headers.get('Location')).to.match(/\/oauth2\/authorization\/consumer\?method=company$/));

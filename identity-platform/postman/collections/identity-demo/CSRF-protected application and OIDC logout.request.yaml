@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/logout"
+method: POST
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Logout rejects a missing CSRF token', () => pm.response.to.have.status(403));
+settings: {}
+examples: ./.resources/CSRF-protected application and OIDC logout.resources/examples
+order: 3000

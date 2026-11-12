@@ -1,0 +1,5 @@
+$kind: collection
+description: Unified platform boundary checks. Stateful migration and billing cases are in integration-tests/rehearsal.spec.cjs and the real MySQL outbox rehearsal.
+variables:
+  - key: baseUrl
+    value: http://127.0.0.1:8281

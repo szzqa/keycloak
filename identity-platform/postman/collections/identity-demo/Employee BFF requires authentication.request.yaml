@@ -1,0 +1,8 @@
+$kind: http-request
+url: '{{baseUrl}}/bff/employee/me'
+method: GET
+order: 7000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Employee BFF rejects a missing session', () => pm.response.to.have.status(401));

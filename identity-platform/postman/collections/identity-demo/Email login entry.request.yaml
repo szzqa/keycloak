@@ -1,0 +1,11 @@
+$kind: http-request
+url: '{{baseUrl}}/auth/login'
+method: GET
+settings:
+  followRedirects: false
+order: 4000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Email entry redirects', () => pm.response.to.have.status(302));
+      pm.test('Email entry selects consumer identity', () => pm.expect(pm.response.headers.get('Location')).to.match(/\/oauth2\/authorization\/consumer$/));

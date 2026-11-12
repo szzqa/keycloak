@@ -1,0 +1,14 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/me"
+method: GET
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('API rejects a missing access token', () => pm.response.to.have.status(401));
+      pm.test('API advertises Bearer authentication', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));
+settings: {}
+examples: ./.resources/Current user from an access token.resources/examples
+order: 2000

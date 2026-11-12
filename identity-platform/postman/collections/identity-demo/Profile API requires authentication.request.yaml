@@ -1,0 +1,8 @@
+$kind: http-request
+url: '{{baseUrl}}/api/profile'
+method: POST
+order: 10000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Profile API requires authentication', () => pm.response.to.have.status(401));

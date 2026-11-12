@@ -1,0 +1,8 @@
+$kind: http-request
+url: '{{baseUrl}}/bff/profile'
+method: POST
+order: 8000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Profile mutation requires CSRF', () => pm.response.to.have.status(403));

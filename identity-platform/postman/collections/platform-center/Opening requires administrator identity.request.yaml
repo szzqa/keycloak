@@ -1,0 +1,7 @@
+$kind: http-request
+url: '{{baseUrl}}/internal/v1/admin/wallets/00000000-0000-4000-8000-000000000001/open'
+method: POST
+order: 4000
+scripts:
+  - type: afterResponse
+    code: pm.test('Credit opening requires operations authentication', () => pm.response.to.have.status(401));

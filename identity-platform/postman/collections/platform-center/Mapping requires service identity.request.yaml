@@ -1,0 +1,7 @@
+$kind: http-request
+url: '{{baseUrl}}/internal/v1/app-accounts/resolve'
+method: POST
+order: 2000
+scripts:
+  - type: afterResponse
+    code: pm.test('Mapping requires product service authentication', () => pm.response.to.have.status(401));

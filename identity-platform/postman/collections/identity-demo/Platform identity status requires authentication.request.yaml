@@ -1,0 +1,8 @@
+$kind: http-request
+url: 'http://127.0.0.1:8180/realms/consumer/identity-platform/account'
+method: GET
+order: 11000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Identity status requires a platform bearer token', () => pm.response.to.have.status(401));

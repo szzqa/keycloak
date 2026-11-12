@@ -1,0 +1,7 @@
+$kind: http-request
+url: '{{baseUrl}}/internal/v1/wallet/reservations'
+method: POST
+order: 3000
+scripts:
+  - type: afterResponse
+    code: pm.test('Untrusted clients cannot debit users', () => pm.response.to.have.status(401));
